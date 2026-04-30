@@ -1,99 +1,113 @@
 const { createCanvas, loadImage } = require("canvas");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 
 module.exports = {
   config: {
     name: "uptime",
-    aliases: ["up", "upt"],
-    version: "2.0",
-    author: "Rocky",
+    aliases: ["up", "live"],
+    version: "4.0",
+    author: "TONMOY",
     role: 0,
     usePrefix: true,
     shortDescription: {
-      en: "Check bot uptime with ping and image"
+      en: "Live system status"
     },
-    longDescription: {
-      en: "Display how long the bot is running along with ping time and a custom image"
-    },
-    category: "system",
-    guide: {
-      en: "{pn} → check bot uptime with ping"
-    }
+    category: "system"
   },
 
-  onStart() {
-    console.log("✅ Uptime command loaded.");
-  },
-
-  onChat: async function ({ event, message, args, commandName }) {
+  async onChat({ event, message, commandName }) {
     const prefix = global.GoatBot.config.prefix || "/";
     const body = event.body?.trim() || "";
-    if (!body.startsWith(prefix + commandName) && !this.config.aliases.some(a => body.startsWith(prefix + a))) return;
 
-    const imagePath = path.join(__dirname, "uptime_image.png");
+    if (
+      !body.startsWith(prefix + commandName) &&
+      !this.config.aliases.some(a => body.startsWith(prefix + a))
+    ) return;
+
+    const imgPath = path.join(__dirname, "live_status.png");
 
     try {
-      const pingMsg = await message.reply("⚡ Checking ping...");
+      const pingMsg = await message.reply("⚡ Checking system...");
+
       const start = Date.now();
-      await new Promise(res => setTimeout(res, 100));
+      await new Promise(r => setTimeout(r, 80));
       const ping = Date.now() - start;
 
-      const uptime = Math.floor(process.uptime()); // in seconds
-      const days = Math.floor(uptime / (3600 * 24));
-      const hours = Math.floor((uptime % (3600 * 24)) / 3600);
-      const minutes = Math.floor((uptime % 3600) / 60);
-      const seconds = uptime % 60;
-      const upTimeStr = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+      // Uptime
+      const uptime = process.uptime();
+      const d = Math.floor(uptime / 86400);
+      const h = Math.floor((uptime % 86400) / 3600);
+      const m = Math.floor((uptime % 3600) / 60);
+      const s = Math.floor(uptime % 60);
+      const upTime = `${d}D ${h}H ${m}M ${s}S`;
 
-      const canvas = createCanvas(1000, 500);
+      // RAM
+      const totalMem = os.totalmem() / 1024 / 1024;
+      const freeMem = os.freemem() / 1024 / 1024;
+      const usedMem = totalMem - freeMem;
+
+      // CPU
+      const cpuModel = os.cpus()[0].model;
+      const cpuCores = os.cpus().length;
+
+      // Canvas
+      const canvas = createCanvas(1000, 550);
       const ctx = canvas.getContext("2d");
 
-      const bgUrl = "https://i.imgur.com/b4rDlP9.png";
-      const background = await loadImage(bgUrl);
-      ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+      const bg = await loadImage("https://i.imgur.com/3ZQ3Z6G.jpeg");
+      ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+
+      // Dark overlay
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Title
+      ctx.fillStyle = "#00ffcc";
+      ctx.font = "bold 48px Arial";
+      ctx.fillText("LIVE SYSTEM STATUS", 50, 90);
 
       ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 45px Arial";
-      ctx.textAlign = "left";
-      ctx.textBaseline = "middle";
-      ctx.shadowColor = "rgba(0,0,0,0.7)";
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 2;
-      ctx.shadowBlur = 4;
+      ctx.font = "30px Arial";
 
-      ctx.fillText("🤖 BOT UPTIME", 60, 100);
-      ctx.fillText(`⏳ ${upTimeStr}`, 60, 200);
-      ctx.fillText(`⚡ Ping: ${ping}ms`, 60, 280);
-      ctx.fillText(`👤 Owner: Rocky Chowdhury:`, 60, 360);
+      ctx.fillText(`⏳ Uptime : ${upTime}`, 50, 170);
+      ctx.fillText(`⚡ Ping   : ${ping} ms`, 50, 220);
+
+      ctx.fillText(`💾 RAM Used : ${usedMem.toFixed(0)} MB`, 50, 280);
+      ctx.fillText(`🧠 CPU Core : ${cpuCores}`, 50, 330);
+
+      ctx.fillText(`🖥️ Platform : ${os.platform()}`, 50, 380);
+      ctx.fillText(`⚙️ NodeJS : ${process.version}`, 50, 430);
+
+      ctx.fillText(`👑 Owner : TONMOY`, 50, 490);
 
       const buffer = canvas.toBuffer("image/png");
-      fs.writeFileSync(imagePath, buffer);
+      fs.writeFileSync(imgPath, buffer);
 
       await message.unsend(pingMsg.messageID);
 
       await message.reply({
         body: `
-━━━━━━━━━━━━━━
-𝐁𝐎𝐓 𝐒𝐓𝐀𝐓𝐔𝐒 ✅
-╭─╼━━━━━━━━╾─╮
-│ 💤 Uptime : ${upTimeStr}
-│ ⚡ Ping   : ${ping}ms
-│ 👑 Owner  : Rocky Chowdhury 
-╰─━━━━━━━━━╾─╯
-━━━━━━━━━━━━━━
+╭──『 🔥 LIVE SYSTEM 』──╮
+│ ⏳ Uptime : ${upTime}
+│ ⚡ Ping   : ${ping} ms
+│ 💾 RAM    : ${usedMem.toFixed(0)}MB / ${totalMem.toFixed(0)}MB
+│ 🧠 CPU    : ${cpuCores} Cores
+│ 🖥️ OS     : ${os.platform()}
+│ ⚙️ Node   : ${process.version}
+│ 👑 Owner  : TONMOY
+╰────────────────────╯
+🚀 System Running Perfectly
         `,
-        attachment: fs.createReadStream(imagePath)
+        attachment: fs.createReadStream(imgPath)
       });
 
     } catch (err) {
-      console.error("❌ Error in uptime command:", err);
-      await message.reply(
-        "⚠️ Failed to generate uptime."
-      );
+      console.error(err);
+      message.reply("❌ System error!");
     } finally {
-      
-      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+      if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
     }
   }
 };
