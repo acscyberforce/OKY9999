@@ -15,15 +15,11 @@ const baseApiUrl = async () => {
 })();
 
 async function getStreamFromURL(url, pathName) {
-    try {
-        const response = await axios.get(url, {
-            responseType: "stream"
-        });
-        response.data.path = pathName;
-        return response.data;
-    } catch (err) {
-        throw err;
-    }
+    const response = await axios.get(url, {
+        responseType: "stream"
+    });
+    response.data.path = pathName;
+    return response.data;
 }
 
 global.utils = {
@@ -39,53 +35,76 @@ function getVideoID(url) {
 
 const config = {
     name: "video",
-    author: "Mesbah Saxx",
-    credits: "Mesbah Saxx",
-    version: "1.0.0",
+    author: "Tonmoy",
+    version: "2.0.0",
     role: 0,
-    hasPermssion: 0,
-    description: "",
-    usePrefix: true,
-    prfix: true,
+    description: "Hacker Style Video Downloader",
     category: "media",
-    commandCategory: "media",
-    cooldowns: 5,
-    countDown: 5,
+    cooldowns: 5
 };
 
 async function onStart({ api, args, event }) {
+    let loadingMsg;
     try {
-        let videoID,w;
+        let videoID;
         const url = args[0];
+
+        // 🔍 Hacker loading message
+        loadingMsg = await api.sendMessage(
+            `\`\`\`
+[ SYSTEM ] Initializing...
+[ SEARCH ] Finding target...
+\`\`\``,
+            event.threadID
+        );
 
         if (url && (url.includes("youtube.com") || url.includes("youtu.be"))) {
             videoID = getVideoID(url);
             if (!videoID) {
-                await api.sendMessage("Invalid YouTube URL.", event.threadID, event.messageID);
+                return api.sendMessage("❌ Invalid YouTube URL", event.threadID);
             }
         } else {
             const songName = args.join(' ');
-             w = await api.sendMessage(`Searching song "${songName}"... `, event.threadID);
             const r = await yts(songName);
-            const videos = r.videos.slice(0, 50);
-
-            const videoData = videos[Math.floor(Math.random() * videos.length)];
-            videoID = videoData.videoId;
+            const videos = r.videos.slice(0, 20);
+            const random = videos[Math.floor(Math.random() * videos.length)];
+            videoID = random.videoId;
         }
 
-        const { data: { title, quality, downloadLink } } = await axios.get(`${global.apis.diptoApi}/ytDl3?link=${videoID}&format=mp4`);
+        const { data: { title, quality, downloadLink } } =
+            await axios.get(`${global.apis.diptoApi}/ytDl3?link=${videoID}&format=mp4`);
 
-        api.unsendMessage(w.messageID);
-        
-        const o = '.php';
-        const shortenedLink = (await axios.get(`https://tinyurl.com/api-create${o}?url=${encodeURIComponent(downloadLink)}`)).data;
+        if (loadingMsg) api.unsendMessage(loadingMsg.messageID);
+
+        const shortLink = (await axios.get(
+            `https://tinyurl.com/api-create.php?url=${encodeURIComponent(downloadLink)}`
+        )).data;
+
+        // 💻 Hacker Terminal Style Message
+        const msg = `
+\`\`\`
+┌──[ TONMOY@SYSTEM ]──[ VIDEO FETCHED ]
+│
+├─🎬 Title    : ${title}
+├─📀 Quality  : ${quality}
+│
+├─👑 Owner    : Tonmoy
+├─⚡ Work     : BD CYBER COMMUNITY
+│
+├─📥 Download : ${shortLink}
+│
+└─[ STATUS ] SUCCESSFULLY EXECUTED ✔
+\`\`\`
+`;
 
         await api.sendMessage({
-            body: `🔖 - 𝚃𝚒𝚝𝚕𝚎: ${title}\n✨ - 𝚀𝚞𝚊𝚕𝚒𝚝𝚢: ${quality}\n\n📥 - 𝙳𝚘𝚠𝚗𝚕𝚘𝚊𝚍 𝙻𝚒𝚗𝚔: ${shortenedLink}`,
-            attachment: await global.utils.getStreamFromURL(downloadLink, title+'.mp4')
-        }, event.threadID, event.messageID);
-    } catch (e) {
-        api.sendMessage(e.message || "An error occurred.", event.threadID, event.messageID);
+            body: msg,
+            attachment: await global.utils.getStreamFromURL(downloadLink, title + ".mp4")
+        }, event.threadID);
+
+    } catch (err) {
+        if (loadingMsg) api.unsendMessage(loadingMsg.messageID);
+        api.sendMessage(`❌ Error: ${err.message}`, event.threadID);
     }
 }
 
