@@ -1,34 +1,32 @@
 module.exports = {
 	config: {
 		name: "unsend",
-		aliases: ["u","r","uns"],
-		version: "1.2",
-		author: "NTKhang",
-		countDown: 5,
+		aliases: [],
+		version: "2.0",
+		author: "TONMOY",
 		role: 0,
 		description: {
-			vi: "Gỡ tin nhắn của bot",
-			en: "Unsend bot's message"
+			en: "Unsend bot message (no prefix)"
 		},
-		category: "box chat",
-		guide: {
-			vi: "reply tin nhắn muốn gỡ của bot và gọi lệnh {pn}",
-			en: "reply the message you want to unsend and call the command {pn}"
-		}
+		category: "box chat"
 	},
 
-	langs: {
-		vi: {
-			syntaxError: "Vui lòng reply tin nhắn muốn gỡ của bot"
-		},
-		en: {
-			syntaxError: "Please reply the message you want to unsend"
-		}
-	},
+	onChat: async function ({ event, message, api }) {
+		const body = event.body?.trim().toLowerCase();
 
-	onStart: async function ({ message, event, api, getLang }) {
-		if (!event.messageReply || event.messageReply.senderID != api.getCurrentUserID())
-			return message.reply(getLang("syntaxError"));
-		message.unsend(event.messageReply.messageID);
+		// Only trigger if user types "u"
+		if (body !== "u") return;
+
+		// Must reply to a message
+		if (!event.messageReply) return;
+
+		// Only unsend bot's own message
+		if (event.messageReply.senderID != api.getCurrentUserID()) return;
+
+		try {
+			await message.unsend(event.messageReply.messageID);
+		} catch (err) {
+			console.error("Unsend error:", err);
+		}
 	}
 };
