@@ -1,113 +1,80 @@
-const { createCanvas, loadImage } = require("canvas");
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
+const os = require('os');
+
+const OWNER_UID = "61583721646897"; // 👉 এখানে তোমার Facebook UID বসাও
+const OWNER_NAME = "TONMOY";
+
+function formatDuration(seconds) {
+    const d = Math.floor(seconds / (3600 * 24));
+    const h = Math.floor(seconds % (3600 * 24) / 3600);
+    const m = Math.floor(seconds % 3600 / 60);
+    const s = Math.floor(seconds % 60);
+
+    const timeFormat = [h, m, s]
+        .map(t => t.toString().padStart(2, '0'))
+        .join(':');
+
+    return d > 0 ? `${d}d ${timeFormat}` : timeFormat;
+}
 
 module.exports = {
   config: {
     name: "uptime",
-    aliases: ["up", "live"],
     version: "4.0",
-    author: "TONMOY",
+    author: "TONMOY ☠",
     role: 0,
-    usePrefix: true,
-    shortDescription: {
-      en: "Live system status"
-    },
     category: "system"
   },
 
-  async onChat({ event, message, commandName }) {
-    const prefix = global.GoatBot.config.prefix || "/";
-    const body = event.body?.trim() || "";
+  onChat: async function({ message, event }) {
+    if (event.body && event.body.toLowerCase() === "up") {
 
-    if (
-      !body.startsWith(prefix + commandName) &&
-      !this.config.aliases.some(a => body.startsWith(prefix + a))
-    ) return;
+      const isOwner = event.senderID === OWNER_UID;
 
-    const imgPath = path.join(__dirname, "live_status.png");
+      const loading = await message.reply("⏳ SYSTEM BOOTING...");
 
-    try {
-      const pingMsg = await message.reply("⚡ Checking system...");
+      setTimeout(async () => {
 
-      const start = Date.now();
-      await new Promise(r => setTimeout(r, 80));
-      const ping = Date.now() - start;
+        const uptime = formatDuration(process.uptime());
 
-      // Uptime
-      const uptime = process.uptime();
-      const d = Math.floor(uptime / 86400);
-      const h = Math.floor((uptime % 86400) / 3600);
-      const m = Math.floor((uptime % 3600) / 60);
-      const s = Math.floor(uptime % 60);
-      const upTime = `${d}D ${h}H ${m}M ${s}S`;
+        const totalMemory = os.totalmem();
+        const freeMemory = os.freemem();
+        const usedMemory = totalMemory - freeMemory;
 
-      // RAM
-      const totalMem = os.totalmem() / 1024 / 1024;
-      const freeMem = os.freemem() / 1024 / 1024;
-      const usedMem = totalMem - freeMem;
+        const toGB = (b) => (b / (1024 * 1024 * 1024)).toFixed(2);
 
-      // CPU
-      const cpuModel = os.cpus()[0].model;
-      const cpuCores = os.cpus().length;
+        const cpu = os.cpus()[0].model.replace(/\s+/g, ' ');
+        const osType = os.type();
 
-      // Canvas
-      const canvas = createCanvas(1000, 550);
-      const ctx = canvas.getContext("2d");
+        const nodeRAM = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
 
-      const bg = await loadImage("https://i.imgur.com/3ZQ3Z6G.jpeg");
-      ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+        const msg = `
+╔══════════════════════════════╗
+   ☠ IM TONMOY BOT ☠
+╚══════════════════════════════╝
 
-      // Dark overlay
-      ctx.fillStyle = "rgba(0,0,0,0.6)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+[✓] STATUS   : ONLINE
+[✓] UPTIME   : ${uptime}
+[✓] OWNER    : ${OWNER_NAME} 👑
+[✓] USER     : ${isOwner ? "OWNER ACCESS 🟢" : "GUEST MODE 🔴"}
 
-      // Title
-      ctx.fillStyle = "#00ffcc";
-      ctx.font = "bold 48px Arial";
-      ctx.fillText("LIVE SYSTEM STATUS", 50, 90);
+╭─〔 BOT CORE 〕
+│ ⚙ NodeJS : v${process.versions.node}
+│ 💾 RAM    : ${nodeRAM} MB
+╰──────────────
 
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "30px Arial";
+╭─〔 SERVER 〕
+│ 🖥 OS   : ${osType} (${os.arch()})
+│ ⚡ CPU  : ${cpu}
+│ 🧠 RAM  : ${toGB(usedMemory)}GB / ${toGB(totalMemory)}GB
+╰──────────────
 
-      ctx.fillText(`⏳ Uptime : ${upTime}`, 50, 170);
-      ctx.fillText(`⚡ Ping   : ${ping} ms`, 50, 220);
+>>> AUTHENTICATION ${isOwner ? "SUCCESS ✔" : "LIMITED ⚠"}
+>>> ${isOwner ? "WELCOME BACK, MASTER 😈" : "ACCESS RESTRICTED 🚫"}
+`;
 
-      ctx.fillText(`💾 RAM Used : ${usedMem.toFixed(0)} MB`, 50, 280);
-      ctx.fillText(`🧠 CPU Core : ${cpuCores}`, 50, 330);
+        message.edit(msg, loading.messageID);
 
-      ctx.fillText(`🖥️ Platform : ${os.platform()}`, 50, 380);
-      ctx.fillText(`⚙️ NodeJS : ${process.version}`, 50, 430);
-
-      ctx.fillText(`👑 Owner : TONMOY`, 50, 490);
-
-      const buffer = canvas.toBuffer("image/png");
-      fs.writeFileSync(imgPath, buffer);
-
-      await message.unsend(pingMsg.messageID);
-
-      await message.reply({
-        body: `
-╭──『 🔥 LIVE SYSTEM 』──╮
-│ ⏳ Uptime : ${upTime}
-│ ⚡ Ping   : ${ping} ms
-│ 💾 RAM    : ${usedMem.toFixed(0)}MB / ${totalMem.toFixed(0)}MB
-│ 🧠 CPU    : ${cpuCores} Cores
-│ 🖥️ OS     : ${os.platform()}
-│ ⚙️ Node   : ${process.version}
-│ 👑 Owner  : TONMOY
-╰────────────────────╯
-🚀 System Running Perfectly
-        `,
-        attachment: fs.createReadStream(imgPath)
-      });
-
-    } catch (err) {
-      console.error(err);
-      message.reply("❌ System error!");
-    } finally {
-      if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+      }, 1500);
     }
   }
 };
