@@ -1,32 +1,38 @@
 module.exports = {
 	config: {
 		name: "unsend",
-		aliases: [],
-		version: "2.0",
-		author: "TONMOY",
+		aliases: ["u", "uns", "r"],
+		version: "1.6",
+		author: "NTKhang | Aphelion",
+		countDown: 5,
 		role: 0,
 		description: {
-			en: "Unsend bot message (no prefix)"
+			en: "Unsend bot message"
 		},
 		category: "box chat"
 	},
 
+	onStart: async function ({ message, event, api }) {
+		if (!event.messageReply || event.messageReply.senderID !== api.getCurrentUserID())
+			return message.reply("Please reply to a bot message");
+
+		message.unsend(event.messageReply.messageID);
+	},
+
+	// NO-PREFIX HANDLER
 	onChat: async function ({ event, message, api }) {
-		const body = event.body?.trim().toLowerCase();
+		if (!event.body || !event.messageReply) return;
 
-		// Only trigger if user types "u"
-		if (body !== "u") return;
+		const text = event.body.toLowerCase().trim();
 
-		// Must reply to a message
-		if (!event.messageReply) return;
+		// short silent keywords
+		const silent = ["u", "tonmoy", "r", "😡"];
 
-		// Only unsend bot's own message
-		if (event.messageReply.senderID != api.getCurrentUserID()) return;
-
-		try {
-			await message.unsend(event.messageReply.messageID);
-		} catch (err) {
-			console.error("Unsend error:", err);
+		if (
+			silent.includes(text) &&
+			event.messageReply.senderID === api.getCurrentUserID()
+		) {
+			message.unsend(event.messageReply.messageID);
 		}
 	}
 };
