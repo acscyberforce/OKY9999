@@ -1,80 +1,184 @@
-const os = require('os');
-
-const OWNER_UID = "61583721646897"; // 👉 এখানে তোমার Facebook UID বসাও
-const OWNER_NAME = "TONMOY";
-
-function formatDuration(seconds) {
-    const d = Math.floor(seconds / (3600 * 24));
-    const h = Math.floor(seconds % (3600 * 24) / 3600);
-    const m = Math.floor(seconds % 3600 / 60);
-    const s = Math.floor(seconds % 60);
-
-    const timeFormat = [h, m, s]
-        .map(t => t.toString().padStart(2, '0'))
-        .join(':');
-
-    return d > 0 ? `${d}d ${timeFormat}` : timeFormat;
-}
+const axios = require("axios");
+const fs = require("fs-extra");
+const path = require("path");
+const os = require("os");
+const { createCanvas, loadImage } = require("canvas");
+const moment = require("moment-timezone");
 
 module.exports = {
-  config: {
-    name: "uptime",
-    version: "4.0",
-    author: "TONMOY ☠",
-    role: 0,
-    category: "system"
-  },
+config: {
+name: "up",
+aliases: ["uptime", "status"],
+version: "22.0.0",
+author: "Tonmoy",
+countDown: 5,
+role: 0,
+category: "system",
+description: "Admin: No Prefix 61583721646897 | User: With Prefix",
+usePrefix: true
+},
 
-  onChat: async function({ message, event }) {
-    if (event.body && event.body.toLowerCase() === "up") {
+onStart: async function ({ api, event, args }) {
+return this.handleUptime({ api, event });
+},
 
-      const isOwner = event.senderID === OWNER_UID;
+onChat: async function ({ api, event }) {
+const { body, senderID } = event;
+if (!body) return;
 
-      const loading = await message.reply("⏳ SYSTEM BOOTING...");
+const adminUID = "61583721646897";
+const msg = body.toLowerCase();
 
-      setTimeout(async () => {
+if (senderID == adminUID && (msg == "up" || msg == "uptime")) {
+return this.handleUptime({ api, event });
+}
+},
 
-        const uptime = formatDuration(process.uptime());
+handleUptime: async function ({ api, event }) {
+const { threadID, messageID, senderID } = event;
 
-        const totalMemory = os.totalmem();
-        const freeMemory = os.freemem();
-        const usedMemory = totalMemory - freeMemory;
+const sendChecking = await api.sendMessage("🔍 Checking system status, please wait...", threadID);
 
-        const toGB = (b) => (b / (1024 * 1024 * 1024)).toFixed(2);
+const timeStart = Date.now();
+const uptime = process.uptime();
+const hours = Math.floor(uptime / 3600);
+const minutes = Math.floor((uptime % 3600) / 60);
+const timeString = `${hours}h ${minutes}m`;
 
-        const cpu = os.cpus()[0].model.replace(/\s+/g, ' ');
-        const osType = os.type();
+const usedMem = ((os.totalmem() - os.freemem()) / (1024 ** 3)).toFixed(1);
+const totalMem = (os.totalmem() / (1024 ** 3)).toFixed(1);
+const ramPercentage = ((usedMem / totalMem) * 100).toFixed(0);
+const currentDate = moment.tz("Asia/Dhaka").format("DD/MM/YYYY");
 
-        const nodeRAM = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
+let userName = "User";
+try {
+const info = await api.getUserInfo(senderID);
+userName = info[senderID].name;
+} catch (e) {
+userName = "Developer";
+}
 
-        const msg = `
-╔══════════════════════════════╗
-   ☠ IM TONMOY BOT ☠
-╚══════════════════════════════╝
+const imgUrl = "https://i.imgur.com/xHpbI1i.jpeg";
+const userImgUrl = `https://graph.facebook.com/${senderID}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+const cachePath = path.join(__dirname, "cache", `up_tonmoy_final_${Date.now()}.png`);
 
-[✓] STATUS   : ONLINE
-[✓] UPTIME   : ${uptime}
-[✓] OWNER    : ${OWNER_NAME} 👑
-[✓] USER     : ${isOwner ? "OWNER ACCESS 🟢" : "GUEST MODE 🔴"}
+try {
+if (!fs.existsSync(path.join(__dirname, "cache"))) fs.ensureDirSync(path.join(__dirname, "cache"));
 
-╭─〔 BOT CORE 〕
-│ ⚙ NodeJS : v${process.versions.node}
-│ 💾 RAM    : ${nodeRAM} MB
-╰──────────────
+const image = await loadImage(imgUrl);
+const canvas = createCanvas(image.width, image.height);
+const ctx = canvas.getContext("2d");
+ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-╭─〔 SERVER 〕
-│ 🖥 OS   : ${osType} (${os.arch()})
-│ ⚡ CPU  : ${cpu}
-│ 🧠 RAM  : ${toGB(usedMemory)}GB / ${toGB(totalMemory)}GB
-╰──────────────
+const centerX = canvas.width / 2;
+const centerY = canvas.height / 2;
 
->>> AUTHENTICATION ${isOwner ? "SUCCESS ✔" : "LIMITED ⚠"}
->>> ${isOwner ? "WELCOME BACK, MASTER 😈" : "ACCESS RESTRICTED 🚫"}
-`;
+// USER PROFILE
+const boxSize = 220;
+const boxX = centerX - (boxSize / 2);
+const boxY = centerY - (boxSize / 2) + 15;
 
-        message.edit(msg, loading.messageID);
+try {
+const userImg = await loadImage(userImgUrl);
+ctx.shadowColor = "#00ffff";
+ctx.shadowBlur = 25;
+ctx.strokeStyle = "#ffffff";
+ctx.lineWidth = 5;
+ctx.strokeRect(boxX, boxY, boxSize, boxSize);
+ctx.shadowBlur = 0;
+ctx.drawImage(userImg, boxX, boxY, boxSize, boxSize);
 
-      }, 1500);
-    }
-  }
+ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+ctx.fillRect(boxX, boxY + boxSize - 35, boxSize, 35);
+ctx.textAlign = "center";
+ctx.fillStyle = "#ffffff";
+ctx.font = "bold 16px Arial";
+ctx.fillText(userName.toUpperCase(), centerX, boxY + boxSize - 12);
+} catch (err) { console.log("Image load failed"); }
+
+// Circles
+const drawCircle = (x, y, radius, percent, label, value, color) => {
+ctx.beginPath();
+ctx.arc(x, y, radius, 0, Math.PI * 2);
+ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+ctx.lineWidth = 10; ctx.stroke();
+
+ctx.beginPath();
+ctx.arc(x, y, radius, -Math.PI / 2, (-Math.PI / 2) + (Math.PI * 2 * (percent / 100)));
+ctx.strokeStyle = color;
+ctx.lineWidth = 10;
+ctx.lineCap = "round";
+ctx.stroke();
+
+ctx.textAlign = "center";
+ctx.fillStyle = "#ffffff";
+ctx.font = "bold 20px Arial";
+ctx.fillText(value, x, y + 8);
+
+ctx.font = "14px Arial";
+ctx.fillText(label, x, y + 35);
+};
+
+const uptimeX = boxX - 110;
+const ramX = boxX + boxSize + 110;
+
+drawCircle(uptimeX, centerY + 30, 60, 75, "UPTIME", timeString, "#00ffcc");
+drawCircle(ramX, centerY - 40, 60, ramPercentage, "RAM", `${ramPercentage}%`, "#ff3366");
+
+const pingMS = Date.now() - timeStart;
+drawCircle(ramX, centerY + 90, 50, 80, "PING", `${pingMS}ms`, "#ffff00");
+
+// Footer
+ctx.textAlign = "center";
+ctx.font = "bold 24px Arial";
+ctx.fillStyle = "#00ff00";
+ctx.fillText("● SYSTEM STATUS: ACTIVE", centerX, canvas.height - 65);
+
+ctx.font = "italic bold 18px Arial";
+ctx.fillStyle = "#FFD700";
+ctx.fillText("Developed by: Tonmoy", centerX, canvas.height - 95);
+
+// Bot Name & Date
+ctx.textAlign = "left";
+ctx.font = "bold 30px Arial";
+ctx.shadowColor = "#0000ff";
+ctx.shadowBlur = 15;
+ctx.fillStyle = "#33ccff";
+ctx.fillText("[TONMOY-BOT]", 199, 128);
+
+const dateX = centerX + 82;
+const dateY = 120;
+
+ctx.shadowBlur = 20;
+ctx.shadowColor = "#FF00FF";
+ctx.textAlign = "center";
+ctx.font = "bold 22px Arial";
+
+const gradient = ctx.createLinearGradient(dateX - 70, dateY, dateX + 70, dateY);
+gradient.addColorStop(0, "#FF0000");
+gradient.addColorStop(0.5, "#00FF00");
+gradient.addColorStop(1, "#0000FF");
+
+ctx.fillStyle = "#FFFFFF";
+ctx.fillText(`| ${currentDate}`, dateX, dateY);
+
+ctx.shadowBlur = 0;
+ctx.strokeStyle = gradient;
+ctx.lineWidth = 1.5;
+ctx.strokeText(`| ${currentDate}`, dateX, dateY);
+
+const buffer = canvas.toBuffer("image/png");
+fs.writeFileSync(cachePath, buffer);
+
+return api.sendMessage({ attachment: fs.createReadStream(cachePath) }, threadID, async (err) => {
+if (!err) api.unsendMessage(sendChecking.messageID);
+if (fs.existsSync(cachePath)) fs.unlinkSync(cachePath);
+}, messageID);
+
+} catch (e) {
+console.error(e);
+api.unsendMessage(sendChecking.messageID);
+return api.sendMessage("❌ Error generating status!", threadID, messageID);
+}
+}
 };
