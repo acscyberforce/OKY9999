@@ -1,6 +1,6 @@
-const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
+const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 
 module.exports = {
   config: {
@@ -25,23 +25,26 @@ module.exports = {
         status: "ONLINE 🟢"
       };
 
-      // 🎥 VIDEO LINK (change anytime)
-      const videoURL = "https://o.uguu.se/oOuYUuHJ.mp4";
+      // 🎥 VIDEO LINK
+      const videoURL = "https://files.catbox.moe/w4x1lt.mp4";
 
       const tmpFolder = path.join(__dirname, "tmp");
-      if (!fs.existsSync(tmpFolder)) fs.mkdirSync(tmpFolder);
+      if (!fs.existsSync(tmpFolder)) {
+        fs.mkdirSync(tmpFolder, { recursive: true });
+      }
 
       const videoPath = path.join(tmpFolder, "owner.mp4");
 
       // ⬇️ DOWNLOAD VIDEO
-      const stream = await axios({
+      const response = await axios({
         url: videoURL,
         method: "GET",
-        responseType: "stream"
+        responseType: "stream",
+        maxRedirects: 5
       });
 
       const writer = fs.createWriteStream(videoPath);
-      stream.data.pipe(writer);
+      response.data.pipe(writer);
 
       await new Promise((resolve, reject) => {
         writer.on("finish", resolve);
@@ -78,17 +81,26 @@ module.exports = {
 🚀 BOT CONTROLLED BY TONMOY
 `;
 
-      // 📤 SEND
-      await api.sendMessage({
-        body: msg,
-        attachment: fs.createReadStream(videoPath)
-      }, event.threadID, () => {
-        fs.unlinkSync(videoPath);
-      });
+      // 📤 SEND MESSAGE WITH VIDEO
+      await api.sendMessage(
+        {
+          body: msg,
+          attachment: fs.createReadStream(videoPath)
+        },
+        event.threadID,
+        () => {
+          if (fs.existsSync(videoPath)) {
+            fs.unlinkSync(videoPath);
+          }
+        }
+      );
 
     } catch (err) {
       console.error(err);
-      return api.sendMessage("❌ SYSTEM ERROR!", event.threadID);
+      return api.sendMessage(
+        "❌ SYSTEM ERROR! VIDEO LOAD FAILED.",
+        event.threadID
+      );
     }
   }
 };
