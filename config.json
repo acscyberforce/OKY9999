@@ -14,11 +14,11 @@
   "language": "en",
   "notesLanguage": "change to your language with ISO 639-1 code",
 
-  "nickNameBot": " [.] 𝐒𝐇𝐄𝐙𝐔𝐊𝐀 🤭☠️",
+  "nickNameBot": "[.] 𝐒𝐇𝐄𝐙𝐔𝐊𝐀 🤭☠️",
   "prefix": ".",
 
   "adminOnly": {
-    "enable": false,
+    "enable": true,
     "ignoreCommand": []
   },
 
