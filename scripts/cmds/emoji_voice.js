@@ -5,12 +5,12 @@ const path = require("path");
 module.exports = {
   config: {
     name: "emoji_voice",
-    version: "2.0.2",
+    version: "2.1.0",
     author: "亗 SIYAM HASAN 亗",
     countDown: 5,
     role: 0,
-    shortDescription: "Sends a cute girl's voice when an emoji is used 😍",
-longDescription: "One emoji triggers multiple voices, sent randomly 😘",
+    shortDescription: "Emoji + Love voice system 😍",
+    longDescription: "Emoji or love text triggers random voice 😘",
     category: "system"
   },
 
@@ -18,19 +18,42 @@ longDescription: "One emoji triggers multiple voices, sent randomly 😘",
 
   onChat: async function ({ event, message }) {
     const { body } = event;
-    if (!body || body.length > 2) return;
+    if (!body) return;
 
-    // --- EMOJI WITH MULTIPLE RANDOM AUDIO LINKS ---
+    const text = body.trim().toLowerCase();
+
+    // =========================
+    // ❤️ LOVE YOU COMMAND FIX
+    // =========================
+    if (text === "i love you" || text === "love you") {
+      const audioUrl = "https://files.catbox.moe/gu9f38.mp3";
+
+      const cacheDir = path.join(__dirname, "cache");
+      fs.ensureDirSync(cacheDir);
+
+      const filePath = path.join(cacheDir, `love_${Date.now()}.mp3`);
+
+      try {
+        const response = await axios.get(audioUrl, {
+          responseType: "arraybuffer"
+        });
+
+        fs.writeFileSync(filePath, Buffer.from(response.data));
+
+        await message.reply({
+          attachment: fs.createReadStream(filePath)
+        });
+
+        fs.unlinkSync(filePath);
+      } catch (error) {
+        console.error(error);
+      }
+
+      return;
+    }
+
+    // emoji map
     const emojiAudioMap = {
-  "🥱": ["https://files.catbox.moe/9pou40.mp3","https://files.catbox.moe/60cwcg.mp3"],
-
-  "i love you": ["https://files.catbox.moe/gu9f38.mp3"],
-  "I love You": ["https://files.catbox.moe/gu9f38.mp3"],
-  "love you": ["https://files.catbox.moe/gu9f38.mp3"],
-
-  "😁": ["https://files.catbox.moe/60cwcg.mp3"],
-  // বাকি সব আগের মতো থাকবে
-};
       "🥱": ["https://files.catbox.moe/9pou40.mp3","https://files.catbox.moe/60cwcg.mp3"],
       "😁": ["https://files.catbox.moe/60cwcg.mp3"],
       "😌": ["https://files.catbox.moe/epqwbx.mp3"],
@@ -75,38 +98,35 @@ longDescription: "One emoji triggers multiple voices, sent randomly 😘",
       "😓": ["https://files.catbox.moe/zh3mdg.mp3"],
       "🤧": ["https://files.catbox.moe/zh3mdg.mp3"],
       "🙄": ["https://files.catbox.moe/vgzkeu.mp3"]
-
     };
 
-    const emoji = body.trim();
-    const audioList = emojiAudioMap[emoji];
+    const audioList = emojiAudioMap[text];
     if (!audioList) return;
 
-    // --- RANDOM AUDIO SELECT ---
     const audioUrl = audioList[Math.floor(Math.random() * audioList.length)];
 
     const cacheDir = path.join(__dirname, "cache");
     fs.ensureDirSync(cacheDir);
 
-    // 🔥 UNIQUE FILE NAME EVERY TIME TO AVOID REPEAT
     const filePath = path.join(
       cacheDir,
-      `${encodeURIComponent(emoji)}_${Date.now()}_${Math.floor(Math.random() * 1000)}.mp3`
+      `${encodeURIComponent(text)}_${Date.now()}.mp3`
     );
 
     try {
-      const response = await axios.get(audioUrl, { responseType: "arraybuffer" });
+      const response = await axios.get(audioUrl, {
+        responseType: "arraybuffer"
+      });
+
       fs.writeFileSync(filePath, Buffer.from(response.data));
 
-      // 🔥 REPLY WITH FRESH STREAM
-      await message.reply({ attachment: fs.createReadStream(filePath) });
-
-      fs.unlink(filePath, (err) => {
-        if (err) console.error("Failed to delete cache file:", err);
+      await message.reply({
+        attachment: fs.createReadStream(filePath)
       });
+
+      fs.unlinkSync(filePath);
     } catch (error) {
       console.error(error);
-      message.reply("ইমোজি দিয়ে লাভ নাই 😒\nযাও বস তনময় কে কল দাও 😘 🫰+88017******");
     }
   }
 };
